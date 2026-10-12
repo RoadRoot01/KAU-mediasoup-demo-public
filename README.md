@@ -58,7 +58,7 @@ Allow these ports on the local firewall as needed:
 - UDP and TCP `44444`: WebRTC media transports
 - UDP and TCP `40000-40999`: optional plain RTP/RTCP transports used by broadcasters
 
-The app defaults to room `test`. Common options include `?roomId=my-room`, `?forceVP8=true`, `?forceH264=true`, and `?info=true`. `?consumerReplicas=N` sets the room-wide duplicate consumer count when a room is first created. The server accepts an integer from `0` to `10`, producing at most 11 consumers per producer; use it for controlled load simulations. For local throttle control, pass the configured secret as a URL fragment such as `#throttleSecret=<value>`; the app reads and removes it before loading room data, and invitation links omit it. Never pass the secret as a query parameter because servers may log query strings.
+The app defaults to room `test`. Common options include `?roomId=my-room`, `?forceVP8=true`, `?forceH264=true`, and `?info=true`. `?consumerReplicas=N` sets the room-wide duplicate consumer count when a room is first created. The server accepts an integer from `0` to `10`; each receiving participant can therefore consume up to 11 copies of each producer. Use it for controlled load simulations. For local throttle control, pass the configured secret as a URL fragment such as `#throttleSecret=<value>`; the app reads and removes it before loading room data, and invitation links omit it. Never pass the secret as a query parameter because servers may log query strings.
 
 ### Run the broadcaster with local HTTPS
 
