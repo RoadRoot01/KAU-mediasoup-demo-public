@@ -116,4 +116,4 @@ This repository is based on [versatica/mediasoup-demo](https://github.com/versat
 - Iñaki Baz Castillo ([website](https://inakibaz.me), [GitHub](https://github.com/ibc/))
 - José Luis Millán Villegas ([GitHub](https://github.com/jmillan/))
 
-The root project license is [ISC](./LICENSE), and upstream copyright and attribution are preserved. At the upstream baseline used for comparison, both `app/package.json` and `broadcaster/package.json` already specify `"license": "All Rights Reserved"`; these package metadata values are inherited from upstream. Review component and dependency notices before any public release.
+The root project license is [ISC](./LICENSE), and upstream copyright and attribution are preserved. At the upstream baseline used for comparison, both `app/package.json` and `broadcaster/package.json` already specify `"license": "All Rights Reserved"`; these package metadata values are inherited from upstream.
