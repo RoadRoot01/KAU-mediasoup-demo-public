@@ -1,5 +1,4 @@
 import * as undici from 'undici';
-import * as undiciTypes from 'undici';
 
 import { Logger } from './Logger';
 import {
@@ -11,7 +10,6 @@ import {
 	TypedApiRequest,
 } from './signaling/apiMessages';
 import { BroadcasterApiClientError } from './errors';
-import * as utils from './utils';
 
 const logger = new Logger('ApiClient');
 
@@ -21,39 +19,25 @@ export type ApiClientCreateOptions = {
 
 type ApiClientConstructorOptions = {
 	baseUrl: string;
-	httpsAgent?: undiciTypes.Agent;
 };
 
 export class ApiClient {
 	readonly #baseUrl: string;
-	readonly #httpsAgent?: undiciTypes.Agent;
 
 	static create({ baseUrl }: ApiClientCreateOptions): ApiClient {
 		logger.debug('create()');
 
-		let httpsAgent: undiciTypes.Agent | undefined;
-
-		if (utils.isHttpsUrl(baseUrl)) {
-			httpsAgent = new undici.Agent({
-				connect: {
-					rejectUnauthorized: false,
-				},
-			});
-		}
-
 		const apiClient = new ApiClient({
 			baseUrl,
-			httpsAgent,
 		});
 
 		return apiClient;
 	}
 
-	private constructor({ baseUrl, httpsAgent }: ApiClientConstructorOptions) {
+	private constructor({ baseUrl }: ApiClientConstructorOptions) {
 		logger.debug('constructor()');
 
 		this.#baseUrl = baseUrl;
-		this.#httpsAgent = httpsAgent;
 	}
 
 	async request<Name extends RequestName>({
@@ -145,7 +129,6 @@ export class ApiClient {
 					'Content-Type': data ? 'application/json' : undefined,
 				},
 				body: data ? JSON.stringify(data) : undefined,
-				dispatcher: this.#httpsAgent,
 			});
 		} catch (error) {
 			throw new BroadcasterApiClientError((error as Error).message);

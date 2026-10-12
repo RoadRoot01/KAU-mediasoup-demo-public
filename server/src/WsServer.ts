@@ -11,6 +11,7 @@ import * as utils from './utils';
 import type { RoomId } from './types';
 
 const logger = new Logger('WsServer');
+const MAX_CONSUMER_REPLICAS = 10;
 
 export type WsServerCreateOptions = {
 	httpServer: https.Server | http.Server;
@@ -100,12 +101,29 @@ export class WsServer extends EnhancedEventEmitter<WsServerEvents> {
 			const params = new URL(fullUrl).searchParams;
 			const roomId = params.get('roomId');
 			const peerId = params.get('peerId');
-			const consumerReplicas = Number(params.get('consumerReplicas') ?? 0);
+			const consumerReplicasParam = params.get('consumerReplicas');
+			const consumerReplicas = Number(consumerReplicasParam ?? 0);
+			const hasValidConsumerReplicasFormat =
+				consumerReplicasParam === null || /^\d+$/.test(consumerReplicasParam);
 			const usePipeTransports = params.get('usePipeTransports') === 'true';
 			const disableBwe = params.get('disableBwe') === 'true';
 
 			if (!roomId || !peerId) {
 				reject(400, 'Missing roomId and/or peerId');
+
+				return;
+			}
+
+			if (
+				!hasValidConsumerReplicasFormat ||
+				!Number.isSafeInteger(consumerReplicas) ||
+				consumerReplicas < 0 ||
+				consumerReplicas > MAX_CONSUMER_REPLICAS
+			) {
+				reject(
+					400,
+					`consumerReplicas must be an integer between 0 and ${MAX_CONSUMER_REPLICAS}`
+				);
 
 				return;
 			}

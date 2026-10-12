@@ -20,8 +20,7 @@ void run();
 async function run(): Promise<void> {
 	logger.debug('run()');
 
-	// const baseUrl: string = 'https://local.aliax.net:4443';
-	const baseUrl: string = 'https://local.dev:4443';
+	const baseUrl: string = 'https://localhost:4443';
 	const roomId: RoomId = 'dev';
 	const peerId: PeerId = utils.generateRandomString(8);
 	const displayName: string = 'Broadcaster';

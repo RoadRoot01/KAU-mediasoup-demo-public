@@ -58,7 +58,25 @@ Allow these ports on the local firewall as needed:
 - UDP and TCP `44444`: WebRTC media transports
 - UDP and TCP `40000-40999`: optional plain RTP/RTCP transports used by broadcasters
 
-The app defaults to room `test`. Common options include `?roomId=my-room`, `?forceVP8=true`, `?forceH264=true`, and `?info=true`. For local throttle control, pass the configured secret as a URL fragment such as `#throttleSecret=<value>`; the app reads and removes it before loading room data, and invitation links omit it. Never pass the secret as a query parameter because servers may log query strings.
+The app defaults to room `test`. Common options include `?roomId=my-room`, `?forceVP8=true`, `?forceH264=true`, and `?info=true`. `?consumerReplicas=N` sets the room-wide duplicate consumer count when a room is first created. The server accepts an integer from `0` to `10`, producing at most 11 consumers per producer; use it for controlled load simulations. For local throttle control, pass the configured secret as a URL fragment such as `#throttleSecret=<value>`; the app reads and removes it before loading room data, and invitation links omit it. Never pass the secret as a query parameter because servers may log query strings.
+
+### Run the broadcaster with local HTTPS
+
+The broadcaster example connects to `https://localhost:4443` and is intended to run on the same computer as the server. Node.js must trust the local mkcert CA. Start the broadcaster with `NODE_EXTRA_CA_CERTS` pointing to mkcert's `rootCA.pem`:
+
+```sh
+export NODE_EXTRA_CA_CERTS="$(mkcert -CAROOT)/rootCA.pem"
+```
+
+On PowerShell:
+
+```powershell
+$env:NODE_EXTRA_CA_CERTS = Join-Path (mkcert -CAROOT) 'rootCA.pem'
+```
+
+Set this before starting the Node.js broadcaster process. The broadcaster verifies the server certificate and hostname; do not disable TLS verification.
+
+To run the broadcaster from another LAN device, set its `baseUrl` in `broadcaster/src/index.ts` to the server's LAN IP or a local hostname. The name in that URL must be covered by the server certificate and match the server's `DOMAIN` setting. For a custom hostname, set `DOMAIN=<YOUR_HOSTNAME>` in `server/.env`, map that hostname to the server's LAN IP with DNS or a hosts file on each client device, and open the app using `https://<YOUR_HOSTNAME>:5555/`. Restart the server after changing `DOMAIN`; it regenerates its ignored local certificate with the new name. Set the same hostname in the broadcaster URL.
 
 ## Configuration
 
