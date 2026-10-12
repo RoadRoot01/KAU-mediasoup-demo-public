@@ -1,10 +1,20 @@
 # KAU mediasoup demo
 
-A custom fork based on [versatica/mediasoup-demo](https://github.com/versatica/mediasoup-demo). Upstream documentation and authorship are retained below. This fork adds KAU-oriented local network configuration and optional network-throttle controls.
+This project is a customized fork of [versatica/mediasoup-demo](https://github.com/versatica/mediasoup-demo) for controlled LAN WebRTC load testing, telemetry collection, SFU host monitoring, and multi-peer performance analysis. It preserves upstream documentation and attribution and adds:
+
+- Browser-side WebRTC client stats collection and JSON export.
+- SFU and host metrics collection, including CPU, memory, Chrome, GPU, temperature, and battery metrics written to CSV.
+- WebRTC telemetry and SFU system dashboards for analyzing exported stats and metrics.
+- Automatic LAN address detection and separate `listenIp` / `announcedAddress` configuration.
+- Automatic local TLS certificate generation with mkcert support and LAN/private-network origin handling.
+- LAN-oriented test configuration, optional network-throttle controls, and `npm run start:prod` for the app.
+- Experiment-oriented preferred consumer layer defaults and controls for simulcast testing.
+
+The upstream `setConsumerPreferredLayers` mechanism is retained; the experiment-specific defaults and controls are the KAU customization.
 
 ## Security and intended use
 
-This project is intended for development, LAN testing, and controlled experiments. It is not a production-ready public Internet service. Do not expose it directly to the public Internet without a separate security review and appropriate deployment hardening. Do not commit `.env` files, TLS certificates, credentials, or experiment output.
+This project is intended for controlled LAN testing and experiments. It is not hardened as an Internet-facing production conferencing service. The demo signaling model inherits mediasoup-demo peer-identity and reconnection semantics, including replacement of an existing connection that uses the same `peerId`, and it does not provide application-level authentication. Public Internet deployment requires separate authentication and authorization, rate limiting, a reverse proxy, network access controls, and a security review. Do not commit `.env` files, TLS certificates, credentials, or experiment output.
 
 ## Requirements
 
@@ -82,6 +92,23 @@ To run the broadcaster from another LAN device, set its `baseUrl` in `broadcaste
 
 `server/config.mjs` contains demo defaults and detects a local IPv4 address. Copy `server/.env.example` to `server/.env` to adjust environment-based settings. The optional `NETWORK_THROTTLE_SECRET` is unset by default, so network-throttle controls remain unavailable until an operator configures a strong random secret locally. Never commit the configured value.
 
+## Telemetry dashboards
+
+The dashboard source is kept under `tools/`. Runtime logs and generated metrics stay under the ignored `server/logs/` directory and are not part of the repository.
+
+### WebRTC telemetry workflow
+
+1. Run the demo and join a room.
+2. Select **WebRTC Stats Download** in the room to save the collected JSON history.
+3. Open `tools/webrtc-stats-dashboard/index.html` in a browser.
+4. Load the downloaded JSON file. The dashboard analyzes outbound and inbound RTP, SSRC streams, local/remote/SFU probator roles, codec and simulcast layers, bitrate, FPS, jitter, packet loss, resolution, and timelines. Its built-in preview uses generated synthetic data.
+
+### SFU system telemetry workflow
+
+1. Start the server; `KAU_CUSTOM_MetricsCollector` writes periodic host and SFU measurements to a CSV in `server/logs/`.
+2. Open `tools/sfu-system-dashboard/index.html` in a browser.
+3. Load the generated CSV file. The dashboard analyzes SFU, system, and Chrome CPU and memory, GPU, temperature, and battery metrics. Its built-in preview uses generated synthetic data.
+
 ## Upstream attribution and license
 
 This repository is based on [versatica/mediasoup-demo](https://github.com/versatica/mediasoup-demo). The upstream project authors are:
@@ -89,4 +116,4 @@ This repository is based on [versatica/mediasoup-demo](https://github.com/versat
 - Iñaki Baz Castillo ([website](https://inakibaz.me), [GitHub](https://github.com/ibc/))
 - José Luis Millán Villegas ([GitHub](https://github.com/jmillan/))
 
-The root project license is [ISC](./LICENSE). Some subprojects retain their upstream package license metadata; review those notices and dependency licenses before any public release.
+The root project license is [ISC](./LICENSE), and upstream copyright and attribution are preserved. At the upstream baseline used for comparison, both `app/package.json` and `broadcaster/package.json` already specify `"license": "All Rights Reserved"`; these package metadata values are inherited from upstream. Review component and dependency notices before any public release.

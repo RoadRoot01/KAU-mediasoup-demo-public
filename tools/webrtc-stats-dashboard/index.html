@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>KAU WebRTC Client Telemetry Dashboard</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+	<!-- Apache ECharts CDN -->
+	<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+	<link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+	<div class="app-layout">
+		<!-- Header -->
+		<header class="header">
+			<div class="header-left">
+				<div class="logo-wrapper">
+					<div class="logo-pulse"></div>
+					<svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<circle cx="12" cy="12" r="10"></circle>
+						<line x1="2" y1="12" x2="22" y2="12"></line>
+						<path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+					</svg>
+				</div>
+				<div class="title-group">
+					<div class="title-row">
+						<h1 class="main-title">KAU WEBRTC METRICS DASHBOARD</h1>
+						<span class="badge live-badge">Client Telemetry</span>
+					</div>
+					<p class="subtitle">W3C RTCStatsReport Analytics & Quality of Experience (QoE) Monitor</p>
+				</div>
+			</div>
+
+			<div class="header-right">
+				<!-- File info pill -->
+				<div id="fileInfoBadge" class="file-info-badge hidden">
+					<svg class="pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+						<polyline points="14 2 14 8 20 8"></polyline>
+					</svg>
+					<span id="fileNameDisplay" class="file-name">No file loaded</span>
+					<span id="fileSampleCount" class="sample-count">0 samples</span>
+				</div>
+
+				<!-- Actions -->
+				<div class="header-actions">
+					<label class="btn btn-primary" for="jsonFileInput">
+						<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+							<polyline points="17 8 12 3 7 8"></polyline>
+							<line x1="12" y1="3" x2="12" y2="15"></line>
+						</svg>
+						<span>JSON 열기</span>
+					</label>
+					<input type="file" id="jsonFileInput" accept=".json,.csv" class="hidden-input" />
+
+					<button id="btnCopySummary" class="btn btn-secondary" title="마크다운 리포트 복사">
+						<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+							<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+						</svg>
+						<span>리포트 복사</span>
+					</button>
+
+					<button id="btnExportCharts" class="btn btn-secondary" title="차트 PNG 저장">
+						<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+							<circle cx="8.5" cy="8.5" r="1.5"></circle>
+							<polyline points="21 15 16 10 5 21"></polyline>
+						</svg>
+						<span>이미지 저장</span>
+					</button>
+				</div>
+			</div>
+		</header>
+
+		<!-- Main Content -->
+		<main class="main-container">
+			<!-- Dropzone banner -->
+			<div id="dropZone" class="drop-zone">
+				<div class="drop-zone-content">
+					<div class="drop-icon-pulse">
+						<svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+							<polyline points="17 8 12 3 7 8" />
+							<line x1="12" y1="3" x2="12" y2="15" />
+						</svg>
+					</div>
+					<h2 class="drop-title">WebRTC Stats JSON 파일을 이곳에 드래그하거나 선택하세요</h2>
+					<p class="drop-desc">
+						클라이언트에서 다운로드한 <code>webrtc_stats_&lt;roomId&gt;_&lt;timestamp&gt;.json</code> 파일을 드롭하면 비트레이트, RTT, 지터, 패킷 손실률, FPS 분석 차트가 즉시 렌더링됩니다.
+					</p>
+					<div class="drop-buttons">
+						<label class="btn btn-accent" for="jsonFileInput">
+							<span>컴퓨터에서 JSON 파일 찾기</span>
+						</label>
+						<button id="btnLoadDemo" class="btn btn-ghost">
+							<span>데모 샘플 미리보기</span>
+						</button>
+					</div>
+				</div>
+			</div>
+
+			<!-- Dashboard Body (shown when data is loaded) -->
+			<div id="dashboardContent" class="dashboard-content hidden">
+				<!-- Control Bar: Time mode toggle & quick filters -->
+				<div class="control-bar">
+					<div class="control-group">
+						<span class="control-label">X축 기준:</span>
+						<div class="segmented-control">
+							<button id="btnXAxisSec" class="segment-btn active" data-axis="elapsed">경과 시간 (초)</button>
+							<button id="btnXAxisKst" class="segment-btn" data-axis="timestamp">한국 시간 (KST)</button>
+						</div>
+					</div>
+
+					<div class="control-group">
+						<span class="control-label">세션 정보:</span>
+						<div id="durationInfoBadge" class="info-pill">
+							<span>측정 지속: <b id="valDurationText">00:00</b></span>
+						</div>
+						<div id="roomIdInfoBadge" class="info-pill">
+							<span>Room: <b id="valRoomId">--</b></span>
+						</div>
+						<div id="videoCodecInfoBadge" class="info-pill">
+							<span>비디오 코덱: <b id="valVideoCodec" style="color: #c084fc;">--</b></span>
+						</div>
+						<div id="audioCodecInfoBadge" class="info-pill">
+							<span>오디오 코덱: <b id="valAudioCodec" style="color: #38bdf8;">--</b></span>
+						</div>
+						<div id="simulcastInfoBadge" class="info-pill">
+							<span>Simulcast: <b id="valSimulcast">--</b></span>
+						</div>
+						<div id="streamsInfoBadge" class="info-pill">
+							<span>스트림: <b id="valStreamCounts">--</b></span>
+						</div>
+					</div>
+
+					<div class="control-group right">
+						<button id="btnResetZoom" class="btn btn-sm btn-ghost">
+							<svg class="btn-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<circle cx="11" cy="11" r="8"></circle>
+								<line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+								<line x1="11" y1="8" x2="11" y2="14"></line>
+								<line x1="8" y1="11" x2="14" y2="11"></line>
+							</svg>
+							<span>줌 리셋</span>
+						</button>
+					</div>
+				</div>
+
+				<!-- KPI Cards Grid -->
+				<section class="kpi-grid">
+					<!-- Bitrate Overview -->
+					<div class="kpi-card card-bitrate">
+						<div class="kpi-card-header">
+							<span class="kpi-title">송신 / 수신 비트레이트</span>
+							<span class="kpi-tag tag-bitrate">Throughput</span>
+						</div>
+						<div class="kpi-main-val">
+							<span id="kpiSendBitrateAvg" class="val-number">--</span>
+							<span class="val-unit">kbps (Send Avg)</span>
+						</div>
+						<div class="kpi-sub-row">
+							<span class="sub-item">송신 최고: <strong id="kpiSendBitratePeak">-- kbps</strong></span>
+							<span class="sub-item">수신 평균: <strong id="kpiRecvBitrateAvg">-- kbps</strong></span>
+						</div>
+						<div class="kpi-bar-track">
+							<div id="kpiBitrateBar" class="kpi-bar-fill bar-bitrate" style="width: 0%"></div>
+						</div>
+					</div>
+
+					<!-- Latency & RTT -->
+					<div class="kpi-card card-latency">
+						<div class="kpi-card-header">
+							<span class="kpi-title">네트워크 지연 (RTT)</span>
+							<span class="kpi-tag tag-latency">Latency</span>
+						</div>
+						<div class="kpi-main-val">
+							<span id="kpiRttAvg" class="val-number">--</span>
+							<span class="val-unit">ms Avg</span>
+						</div>
+						<div class="kpi-sub-row">
+							<span class="sub-item">최대 RTT: <strong id="kpiRttMax">-- ms</strong></span>
+							<span class="sub-item">최소 RTT: <strong id="kpiRttMin">-- ms</strong></span>
+						</div>
+						<div class="kpi-bar-track">
+							<div id="kpiRttBar" class="kpi-bar-fill bar-latency" style="width: 0%"></div>
+						</div>
+					</div>
+
+					<!-- Jitter & Packet Loss -->
+					<div class="kpi-card card-loss">
+						<div class="kpi-card-header">
+							<span class="kpi-title">지터 & 패킷 손실</span>
+							<span class="kpi-tag tag-loss">Stability</span>
+						</div>
+						<div class="kpi-main-val">
+							<span id="kpiLossRateAvg" class="val-number">--</span>
+							<span class="val-unit">% Loss</span>
+						</div>
+						<div class="kpi-sub-row">
+							<span class="sub-item">평균 지터: <strong id="kpiJitterAvg">-- ms</strong></span>
+							<span class="sub-item">총 패킷 손실: <strong id="kpiTotalLoss">-- pkts</strong></span>
+						</div>
+						<div class="kpi-bar-track">
+							<div id="kpiLossBar" class="kpi-bar-fill bar-loss" style="width: 0%"></div>
+						</div>
+					</div>
+
+					<!-- Video FPS & Frame Quality -->
+					<div class="kpi-card card-video">
+						<div class="kpi-card-header">
+							<span class="kpi-title">비디오 품질 & FPS</span>
+							<span class="kpi-tag tag-video">Rendering</span>
+						</div>
+						<div class="kpi-main-val">
+							<span id="kpiFpsAvg" class="val-number">--</span>
+							<span class="val-unit">FPS Avg</span>
+						</div>
+						<div class="kpi-sub-row">
+							<span class="sub-item">드랍된 프레임: <strong id="kpiFramesDropped">--</strong></span>
+							<span class="sub-item">NACK 요청: <strong id="kpiNackTotal">--건</strong></span>
+						</div>
+						<div class="kpi-bar-track">
+							<div id="kpiVideoBar" class="kpi-bar-fill bar-video" style="width: 0%"></div>
+						</div>
+					</div>
+				</section>
+
+				<!-- <KAU> 2026-09-29 START: 방안 B - 내 송신 vs 상대 피어 vs SFU Probe 그룹화 UI 구조화 -->
+				<!-- Per-Peer Stream Telemetry Section -->
+				<section class="peer-streams-section">
+					<div class="peer-streams-header">
+						<div class="peer-streams-title-group">
+							<h3 class="peer-streams-title">스트림 역할별 상세 분석 (Local Me / Remote Peers / SFU Probe)</h3>
+							<p class="peer-streams-desc">내 로컬 송신(Tx)과 상대 피어 수신(Rx), SFU 시스템 프로빙 트래픽을 분리하여 모니터링합니다.</p>
+						</div>
+						<div class="peer-header-controls">
+							<!-- Group Filter Tabs -->
+							<div class="stream-filter-bar">
+								<button id="btnFilterAll" class="stream-filter-btn active" data-filter="all">전체 스트림 (<span id="countAllStreams">0</span>)</button>
+								<button id="btnFilterLocal" class="stream-filter-btn filter-local" data-filter="local">👤 내 송신 (<span id="countLocalStreams">0</span>)</button>
+								<button id="btnFilterRemote" class="stream-filter-btn filter-remote" data-filter="remote">👥 상대 피어 (<span id="countRemoteStreams">0</span>)</button>
+								<button id="btnFilterProbe" class="stream-filter-btn filter-probe" data-filter="probe">⚙️ SFU 프로브 (<span id="countProbeStreams">0</span>)</button>
+							</div>
+							<span id="detectedPeersBadge" class="table-count-badge">0개 스트림 감지</span>
+						</div>
+					</div>
+
+					<!-- Stream Groups Container -->
+					<div id="streamGroupsWrapper" class="stream-groups-wrapper">
+						<!-- Group 1: Local Me (Tx) -->
+						<div id="groupLocalSection" class="stream-group-block">
+							<div class="stream-group-header header-local">
+								<div class="group-title-row">
+									<span class="group-icon">👤</span>
+									<h4 class="stream-group-title">내 로컬 송신 스트림 (Local User Outbound - Tx)</h4>
+									<span class="group-badge badge-local">나 자신 (Local Me)</span>
+								</div>
+								<span id="countBadgeLocal" class="group-count">0개 트랙</span>
+							</div>
+							<div id="gridLocalMe" class="peer-cards-grid">
+								<!-- Dynamically populated or empty notice -->
+							</div>
+						</div>
+
+						<!-- Group 2: Remote Peers (Rx) -->
+						<div id="groupRemoteSection" class="stream-group-block">
+							<div class="stream-group-header header-remote">
+								<div class="group-title-row">
+									<span class="group-icon">👥</span>
+									<h4 class="stream-group-title">원격 피어 수신 스트림 (Remote Peers Inbound - Rx)</h4>
+									<span class="group-badge badge-remote">상대 피어 (Remote Peers)</span>
+								</div>
+								<span id="countBadgeRemote" class="group-count">0개 트랙</span>
+							</div>
+							<div id="gridRemotePeers" class="peer-cards-grid">
+								<!-- Dynamically populated or empty notice -->
+							</div>
+						</div>
+
+						<!-- Group 3: SFU Probe Traffic (Overhead) -->
+						<div id="groupProbeSection" class="stream-group-block">
+							<div class="stream-group-header header-probe">
+								<div class="group-title-row">
+									<span class="group-icon">⚙️</span>
+									<h4 class="stream-group-title">SFU 대역폭 프로빙 스트림 (mediasoup Probator - Rx)</h4>
+									<span class="group-badge badge-probe">SFU 시스템 트래픽</span>
+								</div>
+								<span id="countBadgeProbe" class="group-count">0개 트랙</span>
+							</div>
+							<div id="gridProbe" class="peer-cards-grid">
+								<!-- Dynamically populated or empty notice -->
+							</div>
+						</div>
+					</div>
+				</section>
+				<!-- <KAU> 2026-09-29 END: 방안 B - 내 송신 vs 상대 피어 vs SFU Probe 그룹화 UI 구조화 -->
+
+				<!-- Charts Section -->
+				<section class="charts-container">
+					<!-- Chart 1: Bitrate & Bandwidth Analysis -->
+					<div class="chart-panel">
+						<div class="chart-panel-header">
+							<div class="chart-title-group">
+								<h3 class="chart-title">1. 스트림별 송수신 비트레이트 및 대역폭 (Stream Bitrate & Bandwidth)</h3>
+								<p class="chart-desc">내 송신(Tx)과 상대 피어(Rx)의 독립 비트레이트, 전체 합계 및 SFU 프로빙(BWE) 추이</p>
+							</div>
+						</div>
+						<div id="bitrateChart" class="chart-instance"></div>
+					</div>
+
+					<!-- Chart 2: Latency & Jitter Profile -->
+					<div class="chart-panel">
+						<div class="chart-panel-header">
+							<div class="chart-title-group">
+								<h3 class="chart-title">2. 네트워크 지연(RTT) 및 피어별 지터 추이 (Transport RTT & Per-Peer Jitter)</h3>
+								<p class="chart-desc">클라이언트 ↔ SFU RTT(ms) 및 각 피어(SSRC)별 실시간 지터(ms) 변동</p>
+							</div>
+						</div>
+						<div id="latencyChart" class="chart-instance"></div>
+					</div>
+
+					<!-- Chart 3: Packet Loss & Error Recovery -->
+					<div class="chart-panel">
+						<div class="chart-panel-header">
+							<div class="chart-title-group">
+								<h3 class="chart-title">3. 패킷 손실률 및 에러 복구 시그널 (Loss & NACK / PLI)</h3>
+								<p class="chart-desc">초당 패킷 손실률(%)과 재전송 요청(NACK) 및 키프레임 요청(PLI/FIR) 발생 횟수</p>
+							</div>
+							<div class="chart-badge-group">
+								<span class="legend-pill loss"><span class="dot"></span>패킷 손실률 (%)</span>
+								<span class="legend-pill nack"><span class="dot"></span>NACK 요청</span>
+								<span class="legend-pill pli"><span class="dot"></span>PLI/FIR 키프레임</span>
+							</div>
+						</div>
+						<div id="lossChart" class="chart-instance"></div>
+					</div>
+
+					<!-- Chart 4: Video FPS & Rendering Quality -->
+					<div class="chart-panel">
+						<div class="chart-panel-header">
+							<div class="chart-title-group">
+								<h3 class="chart-title">4. 피어별 비디오 프레임 레이트(FPS) 및 드랍 추이 (Per-Peer Video FPS)</h3>
+								<p class="chart-desc">송신 인코딩 FPS, 각 피어별 수신 디코딩 FPS 및 초당 프레임 드랍(Dropped Frames) 수</p>
+							</div>
+						</div>
+						<div id="videoChart" class="chart-instance"></div>
+					</div>
+				</section>
+
+				<!-- Data Table Section (Collapsible) -->
+				<section class="table-section">
+					<div class="table-header-bar" id="tableToggleBtn">
+						<div class="table-header-left">
+							<svg id="tableChevron" class="table-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<polyline points="9 18 15 12 9 6"></polyline>
+							</svg>
+							<h3 class="table-title">초별 상세 수집 데이터 테이블</h3>
+							<span id="tableRowsCount" class="table-count-badge">0 행</span>
+						</div>
+						<span class="table-toggle-hint">클릭하여 펼치기/접기</span>
+					</div>
+
+					<div id="tableContentWrapper" class="table-content-wrapper collapsed">
+						<div class="table-scroll">
+							<table class="data-table">
+								<thead>
+									<tr>
+										<th>경과 (초)</th>
+										<th>KST 시간</th>
+										<th>송신 비트레이트 (kbps)</th>
+										<th>수신 비트레이트 (kbps)</th>
+										<th>가용 대역폭 (kbps)</th>
+										<th>RTT (ms)</th>
+										<th>Jitter (ms)</th>
+										<th>손실률 (%)</th>
+										<th>송신 FPS</th>
+										<th>수신 FPS</th>
+										<th>드랍 프레임</th>
+									</tr>
+								</thead>
+								<tbody id="dataTableBody">
+									<!-- Dynamically populated -->
+								</tbody>
+							</table>
+						</div>
+					</div>
+				</section>
+
+				<!-- <KAU> 2026-09-29 START: SFU PROBE 기술 가이드 및 mediasoup 실제 C++ 코드 블록 -->
+				<!-- Technical Guide: SFU PROBE & mediasoup Core Implementation -->
+				<section class="probe-guide-section">
+					<div class="probe-guide-card">
+						<div class="probe-guide-header">
+							<div class="probe-guide-icon-box">
+								<svg class="probe-guide-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+									<circle cx="12" cy="12" r="10"></circle>
+									<line x1="12" y1="16" x2="12" y2="12"></line>
+									<line x1="12" y1="8" x2="12.01" y2="8"></line>
+								</svg>
+							</div>
+							<div class="probe-guide-title-group">
+								<h3 class="probe-guide-title">SFU PROBE(대역폭 탐색 더미 트래픽)란 무엇인가?</h3>
+								<p class="probe-guide-desc">실제 영상/음성이 아닌, 네트워크 가용 대역폭(BWE) 한계를 능동적으로 측정하기 위한 mediasoup SFU의 메커니즘입니다.</p>
+							</div>
+							<span class="badge badge-probe">SSRC: 1234 고정</span>
+						</div>
+
+						<div class="probe-guide-body">
+							<div class="probe-summary-grid">
+								<div class="probe-summary-item">
+									<strong>1. 전송 목적</strong>
+									<p>유저 트래픽이 적을 때는 네트워크가 여유로운지 나쁜지 판별할 수 없습니다. 따라서 SFU가 "화질을 더 높여도 안 끊기는지" 간을 보기 위해(probe) 의도적으로 전송합니다.</p>
+								</div>
+								<div class="probe-summary-item">
+									<strong>2. 패킷 특성</strong>
+									<p>사람의 미디어가 들어있지 않은 <b>순수 제로 패딩(Zero Padding)</b> 데이터이며, WebRTC 클라이언트는 이를 디코딩하지 않고 전송 지연 및 손실만 측정(TWCC/REMB)합니다.</p>
+								</div>
+								<div class="probe-summary-item">
+									<strong>3. 대시보드 분리 이유</strong>
+									<p>이 트래픽을 일반 피어 스트림과 합산하면 <b>가짜 트래픽 스파이크</b>가 발생하므로, KAU 대시보드는 이를 시스템 오버헤드로 완전 격리했습니다.</p>
+								</div>
+							</div>
+
+							<!-- Collapsible Details with Actual C++ Code -->
+							<details class="code-details">
+								<summary class="code-details-summary">
+									<span class="summary-left">
+										<svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+											<polyline points="9 18 15 12 9 6"></polyline>
+										</svg>
+										<span><b>mediasoup SFU C++ 코어 실제 구현부 확인하기</b> (ProbationGenerator.hpp / ProbationGenerator.cpp / Transport.cpp)</span>
+									</span>
+									<span class="summary-tag">C++ Source Code</span>
+								</summary>
+								<div class="code-details-content">
+									<p class="code-source-label">1. SSRC 1234 고정 선언: <code>mediasoup/worker/include/RTC/RTP/ProbationGenerator.hpp</code> (Line 19~25)</p>
+									<pre class="code-block"><code class="language-cpp">/**
+ * SSRC of the probation RTP stream.
+ */
+static const uint32_t Ssrc{ 1234 };
+
+/**
+ * Codec payload type of the probation RTP stream.
+ */
+static const uint8_t PayloadType{ 127 };</code></pre>
+
+									<p class="code-source-label">2. MID "probator" 및 제로 패딩 RTP 패킷 생성: <code>mediasoup/worker/src/RTC/RTP/ProbationGenerator.cpp</code> (Line 22, Line 41~48)</p>
+									<pre class="code-block"><code class="language-cpp">// 8 bytes, same as RTC::Consts::MidRtpExtensionMaxLength.
+static const std::string MidValue{ "probator" };
+
+ProbationGenerator::ProbationGenerator()
+{
+    // Trick to only fill the padding with zeroes once.
+    if (mustInitializePayload)
+    {
+        std::memset(ProbationPacketBuffer, 0x00, sizeof(ProbationPacketBuffer));
+        mustInitializePayload = false;
+    }
+
+    // Create the probation RTP packet.
+    this->probationPacket.reset(
+        RTP::Packet::Factory(ProbationPacketBuffer, sizeof(ProbationPacketBuffer)));
+
+    // Set fixed codec payload type (127).
+    this->probationPacket->SetPayloadType(ProbationGenerator::PayloadType);
+
+    // Set fixed SSRC (1234).
+    this->probationPacket->SetSsrc(ProbationGenerator::Ssrc);
+    ...
+}</code></pre>
+
+									<p class="code-source-label">3. 클라이언트 RTCP 수신 시 SSRC 1234 예외 격리: <code>mediasoup/worker/src/RTC/Transport.cpp</code> (Line 1984~1990)</p>
+									<pre class="code-block"><code class="language-cpp">auto* consumer = GetConsumerByMediaSsrc(report->GetSsrc());
+
+if (!consumer)
+{
+    // Special case for the RTP probator (SSRC 1234).
+    if (report->GetSsrc() == RTC::RTP::ProbationGenerator::Ssrc)
+    {
+        continue; // 일반 피어 Consumer가 아니므로 건너뜀
+    }
+    ...
+}</code></pre>
+								</div>
+							</details>
+						</div>
+					</div>
+				</section>
+				<!-- <KAU> 2026-09-29 END: SFU PROBE 기술 가이드 및 mediasoup 실제 C++ 코드 블록 -->
+			</div>
+		</main>
+
+		<!-- Footer -->
+		<footer class="footer">
+			<p>Korea Aerospace University (KAU) Media Communications Lab &middot; WebRTC Quality of Experience Telemetry</p>
+		</footer>
+	</div>
+
+	<!-- Toast Notification Container -->
+	<div id="toastNotification" class="toast hidden"></div>
+
+	<!-- App Logic -->
+	<script src="./app.js"></script>
+</body>
+</html>

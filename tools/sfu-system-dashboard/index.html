@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>KAU SFU System Metrics Dashboard</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+	<!-- Apache ECharts CDN -->
+	<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+	<link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+	<div class="app-layout">
+		<!-- Header -->
+		<header class="header">
+			<div class="header-left">
+				<div class="logo-wrapper">
+					<div class="logo-pulse"></div>
+					<svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+					</svg>
+				</div>
+				<div class="title-group">
+					<div class="title-row">
+						<h1 class="main-title">KAU SFU METRICS DASHBOARD</h1>
+						<span class="badge live-badge">Interactive Viewer</span>
+					</div>
+					<p class="subtitle">mediasoup SFU & Host Hardware Performance Telemetry</p>
+				</div>
+			</div>
+
+			<div class="header-right">
+				<!-- File info pill -->
+				<div id="fileInfoBadge" class="file-info-badge hidden">
+					<svg class="pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+						<polyline points="14 2 14 8 20 8"></polyline>
+					</svg>
+					<span id="fileNameDisplay" class="file-name">No file loaded</span>
+					<span id="fileSampleCount" class="sample-count">0 samples</span>
+				</div>
+
+				<!-- Actions -->
+				<div class="header-actions">
+					<label class="btn btn-primary" for="csvFileInput">
+						<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+							<polyline points="17 8 12 3 7 8"></polyline>
+							<line x1="12" y1="3" x2="12" y2="15"></line>
+						</svg>
+						<span>CSV 열기</span>
+					</label>
+					<input type="file" id="csvFileInput" accept=".csv" class="hidden-input" />
+
+					<button id="btnCopySummary" class="btn btn-secondary" title="마크다운 리포트 복사">
+						<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+							<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+						</svg>
+						<span>리포트 복사</span>
+					</button>
+
+					<button id="btnExportCharts" class="btn btn-secondary" title="차트 PNG 저장">
+						<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+							<circle cx="8.5" cy="8.5" r="1.5"></circle>
+							<polyline points="21 15 16 10 5 21"></polyline>
+						</svg>
+						<span>이미지 저장</span>
+					</button>
+				</div>
+			</div>
+		</header>
+
+		<!-- Main Content -->
+		<main class="main-container">
+			<!-- Dropzone banner (visible when no file or on dragover) -->
+			<div id="dropZone" class="drop-zone">
+				<div class="drop-zone-content">
+					<div class="drop-icon-pulse">
+						<svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+							<polyline points="17 8 12 3 7 8" />
+							<line x1="12" y1="3" x2="12" y2="15" />
+						</svg>
+					</div>
+					<h2 class="drop-title">CSV 측정 로그 파일을 이곳에 드래그하거나 선택하세요</h2>
+					<p class="drop-desc">
+						<code>metrics_YYYYMMDD_HHMMSS.csv</code> 파일을 드롭하면 SFU 부하 및 하드웨어 분석 차트가 즉시 렌더링됩니다.
+					</p>
+					<div class="drop-buttons">
+						<label class="btn btn-accent" for="csvFileInput">
+							<span>컴퓨터에서 CSV 파일 찾기</span>
+						</label>
+						<button id="btnLoadDemo" class="btn btn-ghost">
+							<span>데모 샘플 미리보기</span>
+						</button>
+					</div>
+				</div>
+			</div>
+
+			<!-- Dashboard Body (shown when data is loaded) -->
+			<div id="dashboardContent" class="dashboard-content hidden">
+				<!-- Control Bar: Time mode toggle & quick filters -->
+				<div class="control-bar">
+					<div class="control-group">
+						<span class="control-label">X축 기준:</span>
+						<div class="segmented-control">
+							<button id="btnXAxisSec" class="segment-btn active" data-axis="elapsed">경과 시간 (초)</button>
+							<button id="btnXAxisKst" class="segment-btn" data-axis="timestamp">한국 시간 (KST)</button>
+						</div>
+					</div>
+
+					<div class="control-group">
+						<span class="control-label">기간 정보:</span>
+						<div id="durationInfoBadge" class="info-pill">
+							<span>측정 지속: <b id="valDurationText">00:00</b></span>
+						</div>
+						<div id="intervalInfoBadge" class="info-pill">
+							<span>샘플링 주기: <b>5초</b></span>
+						</div>
+					</div>
+
+					<div class="control-group right">
+						<button id="btnResetZoom" class="btn btn-sm btn-ghost">
+							<svg class="btn-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<circle cx="11" cy="11" r="8"></circle>
+								<line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+								<line x1="11" y1="8" x2="11" y2="14"></line>
+								<line x1="8" y1="11" x2="14" y2="11"></line>
+							</svg>
+							<span>줌 리셋</span>
+						</button>
+					</div>
+				</div>
+
+				<!-- KPI Cards Grid -->
+				<section class="kpi-grid">
+					<!-- SFU CPU Peak / Avg -->
+					<div class="kpi-card card-sfu">
+						<div class="kpi-card-header">
+							<span class="kpi-title">SFU Node+Worker CPU</span>
+							<span class="kpi-tag tag-sfu">mediasoup</span>
+						</div>
+						<div class="kpi-main-val">
+							<span id="kpiSfuCpuPeak" class="val-number">--</span>
+							<span class="val-unit">% Peak</span>
+						</div>
+						<div class="kpi-sub-row">
+							<span class="sub-item">평균: <strong id="kpiSfuCpuAvg">--%</strong></span>
+							<span class="sub-item">최대 RSS: <strong id="kpiSfuRamPeak">-- MB</strong></span>
+						</div>
+						<div class="kpi-bar-track">
+							<div id="kpiSfuCpuBar" class="kpi-bar-fill bar-sfu" style="width: 0%"></div>
+						</div>
+					</div>
+
+					<!-- Chrome CPU / RAM -->
+					<div class="kpi-card card-chrome">
+						<div class="kpi-card-header">
+							<span class="kpi-title">Chrome Client Load</span>
+							<span class="kpi-tag tag-chrome">Browser</span>
+						</div>
+						<div class="kpi-main-val">
+							<span id="kpiChromeCpuPeak" class="val-number">--</span>
+							<span class="val-unit">% CPU</span>
+						</div>
+						<div class="kpi-sub-row">
+							<span class="sub-item">RAM 피크: <strong id="kpiChromeRamPeak">-- MB</strong></span>
+							<span class="sub-item">최대 프로세스: <strong id="kpiChromeProcs">--개</strong></span>
+						</div>
+						<div class="kpi-bar-track">
+							<div id="kpiChromeCpuBar" class="kpi-bar-fill bar-chrome" style="width: 0%"></div>
+						</div>
+					</div>
+
+					<!-- System Total CPU & RAM -->
+					<div class="kpi-card card-system">
+						<div class="kpi-card-header">
+							<span class="kpi-title">Host System Total</span>
+							<span class="kpi-tag tag-system">Hardware</span>
+						</div>
+						<div class="kpi-main-val">
+							<span id="kpiSysCpuPeak" class="val-number">--</span>
+							<span class="val-unit">% CPU Peak</span>
+						</div>
+						<div class="kpi-sub-row">
+							<span class="sub-item">RAM 최대: <strong id="kpiSysRamPeak">--%</strong></span>
+							<span class="sub-item">RAM 사용량: <strong id="kpiSysRamUsedPeak">-- MB</strong></span>
+						</div>
+						<div class="kpi-bar-track">
+							<div id="kpiSysCpuBar" class="kpi-bar-fill bar-system" style="width: 0%"></div>
+						</div>
+					</div>
+
+					<!-- Thermal & Battery & GPU -->
+					<div class="kpi-card card-hardware">
+						<div class="kpi-card-header">
+							<span class="kpi-title">Thermal & GPU Environment</span>
+							<span class="kpi-tag tag-hw">Environment</span>
+						</div>
+						<div class="kpi-main-val">
+							<span id="kpiCpuTempPeak" class="val-number">--</span>
+							<span class="val-unit">°C Peak</span>
+						</div>
+						<div class="kpi-sub-row">
+							<span class="sub-item">GPU 최고: <strong id="kpiGpuPeak">--%</strong></span>
+							<span class="sub-item">배터리 소모: <strong id="kpiBatteryDelta">--%</strong></span>
+						</div>
+						<div class="kpi-bar-track">
+							<div id="kpiTempBar" class="kpi-bar-fill bar-temp" style="width: 0%"></div>
+						</div>
+					</div>
+				</section>
+
+				<!-- Charts Section -->
+				<section class="charts-container">
+					<!-- Chart 1: CPU Load Analysis -->
+					<div class="chart-panel">
+						<div class="chart-panel-header">
+							<div class="chart-title-group">
+								<h3 class="chart-title">1. CPU 부하 상관관계 분석 (System vs SFU vs Chrome)</h3>
+								<p class="chart-desc">전체 시스템 CPU 사용률과 SFU Core 및 Chrome 브라우저의 점유율 비교</p>
+							</div>
+							<div class="chart-badge-group">
+								<span class="legend-pill sys"><span class="dot"></span>System CPU %</span>
+								<span class="legend-pill sfu"><span class="dot"></span>SFU Total CPU %</span>
+								<span class="legend-pill chrome"><span class="dot"></span>Chrome CPU %</span>
+							</div>
+						</div>
+						<div id="cpuChart" class="chart-instance"></div>
+					</div>
+
+					<!-- Chart 2: RAM Memory Usage -->
+					<div class="chart-panel">
+						<div class="chart-panel-header">
+							<div class="chart-title-group">
+								<h3 class="chart-title">2. 메모리(RAM) 점유율 및 사용량 추이</h3>
+								<p class="chart-desc">SFU Node+Worker RSS(MB)와 Chrome 프로세스 메모리 및 전체 시스템 RAM %</p>
+							</div>
+							<div class="chart-badge-group">
+								<span class="legend-pill chrome"><span class="dot"></span>Chrome RAM (MB)</span>
+								<span class="legend-pill sfu"><span class="dot"></span>SFU RSS (MB)</span>
+								<span class="legend-pill sys"><span class="dot"></span>System RAM %</span>
+							</div>
+						</div>
+						<div id="ramChart" class="chart-instance"></div>
+					</div>
+
+					<!-- Chart 3: Hardware Environment (GPU / Temp / Battery / Chrome Procs) -->
+					<div class="chart-panel">
+						<div class="chart-panel-header">
+							<div class="chart-title-group">
+								<h3 class="chart-title">3. 하드웨어 환경 및 디바이스 상태</h3>
+								<p class="chart-desc">GPU 활용률(%), CPU 발열 온도(°C), 배터리 잔량(%) 및 Chrome 실행 프로세스 수</p>
+							</div>
+							<div class="chart-badge-group">
+								<span class="legend-pill gpu"><span class="dot"></span>GPU %</span>
+								<span class="legend-pill temp"><span class="dot"></span>CPU Temp °C</span>
+								<span class="legend-pill batt"><span class="dot"></span>Battery %</span>
+								<span class="legend-pill procs"><span class="dot"></span>Chrome Procs</span>
+							</div>
+						</div>
+						<div id="hwChart" class="chart-instance"></div>
+					</div>
+				</section>
+
+				<!-- Collapsible Data Table -->
+				<section class="table-section">
+					<div class="table-header-row" id="tableToggleBtn">
+						<div class="table-title-group">
+							<svg class="chevron-icon" id="tableChevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<polyline points="6 9 12 15 18 9"></polyline>
+							</svg>
+							<h3 class="table-title">CSV 원본 데이터 테이블 (<span id="tableRowsCount">0</span> 행)</h3>
+						</div>
+						<span class="table-toggle-hint">클릭하여 펼치기/접기</span>
+					</div>
+
+					<div id="tableContentWrapper" class="table-content-wrapper collapsed">
+						<div class="table-responsive">
+							<table class="data-table" id="dataTable">
+								<thead>
+									<tr>
+										<th>#</th>
+										<th>Timestamp (KST)</th>
+										<th>경과(초)</th>
+										<th>System CPU%</th>
+										<th>SFU CPU%</th>
+										<th>Chrome CPU%</th>
+										<th>SFU RAM(MB)</th>
+										<th>Chrome RAM(MB)</th>
+										<th>Sys RAM%</th>
+										<th>GPU%</th>
+										<th>온도(°C)</th>
+										<th>배터리%</th>
+										<th>Chrome수</th>
+									</tr>
+								</thead>
+								<tbody id="dataTableBody">
+									<!-- Dynamically populated -->
+								</tbody>
+							</table>
+						</div>
+					</div>
+				</section>
+			</div>
+		</main>
+
+		<!-- Footer -->
+		<footer class="footer">
+			<p>Korea Aerospace University &bull; SFU WebRTC Load Benchmark & Telemetry &bull; Powered by mediasoup & ECharts</p>
+		</footer>
+	</div>
+
+	<!-- Toast notification -->
+	<div id="toastNotification" class="toast hidden"></div>
+
+	<script src="./app.js"></script>
+</body>
+</html>
