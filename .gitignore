@@ -1,0 +1,47 @@
+# Local environment files
+.env
+.env.*
+**/.env
+**/.env.*
+!/.env.example
+!**/.env.example
+
+# Local certificates and identity
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+/server/certs/*
+!/server/certs/.gitkeep
+/server/certs/.ip
+
+# Runtime output and captures
+/server/logs/
+**/logs/
+*.log
+*.pcap
+*.pcapng
+*.har
+
+# Dependencies and generated output
+**/node_modules/
+**/dist/
+**/lib/
+**/build/
+/server/public/
+/public/
+*.tgz
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.zed/
+.idea/
+*.swp
+*.swo
+
+# Local runtime sockets
+*.sock
+mediasoup_valgrind_*

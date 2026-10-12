@@ -1,0 +1,35 @@
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# TLS certificates / local identity
+/certs/*
+!/certs/.gitkeep
+/certs/.ip
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+
+# Runtime / experiment output
+/logs/
+*.log
+*.pcap
+*.pcapng
+*.har
+
+# Build / dependencies
+node_modules/
+dist/
+lib/
+public/
+*.tgz
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.zed/
+.idea/
